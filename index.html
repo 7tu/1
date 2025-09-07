@@ -1,0 +1,2891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电缆桥架报价分析系统</title>
+    <!-- 预连接与Web字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 引入外部资源 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#FF4D4F',
+                        info: '#40A9FF',
+                        light: '#F5F5F5',
+                        dark: '#1F2329'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        card: '0 4px 20px rgba(0, 0, 0, 0.08)'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: 0, transform: 'translateY(8px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' }
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' }
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 500ms ease-out both',
+                        'fade-in-slow': 'fadeIn 900ms ease-out both',
+                        'shimmer': 'shimmer 2s linear infinite'
+                    },
+                    backgroundImage: {
+                        'radial-fade': 'radial-gradient(1200px 600px at 80% -10%, rgba(22,93,255,0.10), transparent), radial-gradient(1000px 500px at -10% 20%, rgba(54,207,201,0.10), transparent)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义样式 -->
+    <style>
+        html { scroll-behavior: smooth; }
+    </style>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto { content-visibility: auto; }
+            .shadow-card { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); }
+            .transition-all-300 { transition: all 300ms ease-in-out; }
+            .table-fixed-layout { table-layout: fixed; }
+            .bg-grid {
+                background-image: radial-gradient(rgba(22,93,255,0.08) 1px, transparent 1px);
+                background-size: 22px 22px;
+            }
+        }
+        @layer components {
+            .glass { @apply bg-white/80 backdrop-blur-md border border-white/50 shadow-card; }
+            .card { @apply bg-white rounded-xl shadow-card transition-all-300 hover:-translate-y-0.5 hover:shadow-lg; }
+            .btn-primary { @apply bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-all-300; }
+            .btn-ghost { @apply px-4 py-2 rounded-lg hover:bg-primary/10 text-primary transition-all-300; }
+            .table-sticky thead th { @apply sticky top-0 z-10 bg-gray-50; }
+            .row-zebra tbody tr:nth-child(even) { @apply bg-gray-50/60; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { animation: none !important; transition: none !important; }
+        }
+        /* 自定义滚动条（Webkit） */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(31,35,41,0.15); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(31,35,41,0.28); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 text-dark relative min-h-screen">
+    <!-- 背景装饰 -->
+    <div class="pointer-events-none fixed inset-0 -z-10 bg-radial-fade bg-grid"></div>
+    
+    <!-- 顶部导航栏 -->
+    <header class="glass fixed w-full top-0 z-50 transition-all duration-300">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-bar-chart text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-primary">电缆桥架报价分析系统</h1>
+            </div>
+            <nav class="hidden md:flex items-center space-x-1">
+                <button id="nav-import" class="nav-btn px-4 py-2 rounded-full btn-ghost">
+                    <i class="fa fa-upload mr-1"></i>导入数据
+                </button>
+                <button id="nav-basic" class="nav-btn px-4 py-2 rounded-full btn-ghost hidden">
+                    <i class="fa fa-table mr-1"></i>报价基本分析
+                </button>
+                <button id="nav-anomaly" class="nav-btn px-4 py-2 rounded-full btn-ghost hidden">
+                    <i class="fa fa-exclamation-triangle mr-1"></i>报价异常分析
+                </button>
+                <button id="nav-cost" class="nav-btn px-4 py-2 rounded-full btn-ghost hidden">
+                    <i class="fa fa-money mr-1"></i>成本分析
+                </button>
+                <button id="nav-ai" class="nav-btn px-4 py-2 rounded-full btn-ghost hidden">
+                    <i class="fa fa-robot mr-1"></i>AI决策支持
+                </button>
+            </nav>
+            <button id="mobile-menu-btn" class="md:hidden text-gray-600 hover:text-primary transition-all-300">
+                <i class="fa fa-bars text-xl"></i>
+            </button>
+        </div>
+        <!-- 移动端菜单 -->
+        <div id="mobile-menu" class="hidden md:hidden glass border-t">
+            <div class="container mx-auto px-4 py-2 flex flex-col space-y-1">
+                <button id="mobile-nav-import" class="mobile-nav-btn px-4 py-2 text-left rounded-lg hover:bg-primary/10 transition-all-300">
+                    <i class="fa fa-upload mr-1"></i>导入数据
+                </button>
+                <button id="mobile-nav-basic" class="mobile-nav-btn px-4 py-2 text-left rounded-lg hover:bg-primary/10 transition-all-300 hidden">
+                    <i class="fa fa-table mr-1"></i>报价基本分析
+                </button>
+                <button id="mobile-nav-anomaly" class="mobile-nav-btn px-4 py-2 text-left rounded-lg hover:bg-primary/10 transition-all-300 hidden">
+                    <i class="fa fa-exclamation-triangle mr-1"></i>报价异常分析
+                </button>
+                <button id="mobile-nav-cost" class="mobile-nav-btn px-4 py-2 text-left rounded-lg hover:bg-primary/10 transition-all-300 hidden">
+                    <i class="fa fa-money mr-1"></i>成本分析
+                </button>
+                <button id="mobile-nav-ai" class="mobile-nav-btn px-4 py-2 text-left rounded-lg hover:bg-primary/10 transition-all-300 hidden">
+                    <i class="fa fa-robot mr-1"></i>AI决策支持
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 pt-24 pb-16 animate-fade-in">
+        <!-- 导入数据区域 -->
+        <section id="import-section" class="py-8">
+            <div class="max-w-3xl mx-auto card p-8 text-center">
+                <div class="mb-6">
+                    <i class="fa fa-file-excel-o text-5xl text-success mb-4"></i>
+                    <h2 class="text-2xl font-bold mb-2">导入报价数据</h2>
+                    <p class="text-gray-500">请导入包含电缆桥架报价信息的Excel文件</p>
+                </div>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 cursor-pointer hover:border-primary transition-all-300" id="drop-area">
+                    <i class="fa fa-cloud-upload text-3xl text-gray-400 mb-3"></i>
+                    <p class="mb-2">拖放Excel文件到此处，或</p>
+                    <button class="btn-primary">
+                        <i class="fa fa-folder-open mr-1"></i>选择文件
+                    </button>
+                    <input type="file" id="file-input" accept=".xlsx, .xls" class="hidden">
+                </div>
+                
+                <div class="mt-6 text-sm text-gray-500">
+                    <p>支持的格式：.xlsx, .xls</p>
+                    <p class="mt-1">文件应包含以下列：物料码、各供应商报价、未来1年预估数量、2024年历史采购数据金额</p>
+                </div>
+            </div>
+            
+            <!-- 导入状态显示 -->
+            <div id="import-status" class="max-w-3xl mx-auto mt-6 hidden">
+                <div class="glass rounded-xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div id="status-icon" class="mr-3 text-xl"></div>
+                        <h3 id="status-title" class="text-lg font-semibold"></h3>
+                    </div>
+                    <div class="w-full bg-gray-200/70 rounded-full h-2.5 mb-2 overflow-hidden">
+                        <div id="progress-bar" class="h-2.5 rounded-full bg-gradient-to-r from-primary via-secondary to-primary animate-shimmer [background-size:200%_100%]" style="width: 0%"></div>
+                    </div>
+                    <p id="status-message" class="text-sm text-gray-500"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 报价基本分析区域 -->
+        <section id="basic-analysis-section" class="py-8 hidden animate-fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold mb-2">报价基本分析</h2>
+                <p class="text-gray-500">按供应商维度分析报价数据，计算总报价并排序</p>
+            </div>
+            
+            <!-- 数据概览卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">供应商总数</p>
+                            <h3 id="supplier-count" class="text-3xl font-bold mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="fa fa-building text-primary text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">物料总数</p>
+                            <h3 id="material-count" class="text-3xl font-bold mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
+                            <i class="fa fa-cubes text-secondary text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">总最高报价 / 总最低报价</p>
+                            <p id="total-max" class="text-base font-bold mt-1 leading-relaxed">最高: ¥0</p>
+                            <p id="total-min" class="text-base font-bold leading-relaxed">最低: ¥0</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                            <i class="fa fa-money text-success text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 可视化图表 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">供应商总报价对比</h3>
+                    <div class="h-80">
+                        <canvas id="supplier-total-chart"></canvas>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">供应商平均单价对比</h3>
+                    <div class="h-80">
+                        <canvas id="supplier-average-price-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 表格控制区 -->
+            <div class="card p-6 mb-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div class="flex items-center">
+                        <div class="relative">
+                            <input type="text" id="basic-search" placeholder="搜索供应商..." 
+                                class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center">
+                            <label for="basic-page-size" class="mr-2 text-gray-600">每页显示：</label>
+                            <select id="basic-page-size" class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                <option value="10">10条/页</option>
+                                <option value="50">50条/页</option>
+                                <option value="100">100条/页</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <label for="basic-sort" class="mr-2 text-gray-600">排序：</label>
+                            <select id="basic-sort" class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                <option value="total-asc">总价升序</option>
+                                <option value="total-desc">总价降序</option>
+                                <option value="name-asc">名称升序</option>
+                                <option value="name-desc">名称降序</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-fixed-layout table-sticky row-zebra rounded-lg overflow-hidden">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/6">供应商名称</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/6">总报价</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/6">价格排名</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/6">物料数量</th>
+                                <th class="py-3 px-4 text-center text-sm font-semibold text-gray-700 w-1/6">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="basic-table-body">
+                            <!-- 表格内容将通过JavaScript动态填充 -->
+                            <tr>
+                                <td colspan="5" class="py-8 text-center text-gray-500">请先导入数据</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="flex items-center justify-between mt-6" id="basic-pagination">
+                    <div class="text-sm text-gray-500">
+                        显示 <span id="basic-start">0</span> - <span id="basic-end">0</span> 条，共 <span id="basic-total">0</span> 条
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="basic-prev" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-chevron-left text-sm"></i>
+                        </button>
+                        <div id="basic-page-numbers" class="flex items-center gap-1">
+                            <!-- 页码将通过JavaScript动态填充 -->
+                        </div>
+                        <button id="basic-next" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-chevron-right text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 供应商详情模态框 -->
+            <div id="supplier-detail-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-2xl ring-1 ring-black/5 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                    <div class="p-6 border-b flex items-center justify-between">
+                        <h3 id="modal-title" class="text-xl font-bold">供应商详情</h3>
+                        <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 overflow-y-auto flex-grow">
+                        <div class="mb-6">
+                            <h4 class="text-lg font-semibold mb-2">基本信息</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-gray-500 text-sm">供应商名称</p>
+                                    <p id="modal-supplier-name" class="font-medium"></p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 text-sm">总报价</p>
+                                    <p id="modal-total-price" class="font-medium"></p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-500 text-sm">价格排名</p>
+                                    <p id="modal-price-rank" class="font-medium"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-lg font-semibold mb-4">物料报价明细</h4>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full">
+                                    <thead>
+                                        <tr class="bg-gray-50 border-b">
+                                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">物料码</th>
+                                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">单价</th>
+                                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">预估数量</th>
+                                            <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">总价</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="modal-materials-body">
+                                        <!-- 物料明细将通过JavaScript动态填充 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6 border-t flex justify-end">
+                        <button id="close-modal-btn" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all-300">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 报价异常分析区域 -->
+        <section id="anomaly-analysis-section" class="py-8 hidden animate-fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold mb-2">报价异常分析</h2>
+                <p class="text-gray-500">分析各供应商报价的异常情况，识别潜在的价格问题</p>
+            </div>
+            
+            <!-- 数据概览卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">总记录数</p>
+                            <h3 id="anomaly-total-count" class="text-3xl font-bold mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="fa fa-database text-primary text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">异常值总数</p>
+                            <h3 id="anomaly-count" class="text-3xl font-bold mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center">
+                            <i class="fa fa-exclamation-circle text-danger text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">异常高值</p>
+                            <h3 id="high-anomaly-count" class="text-3xl font-bold mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
+                            <i class="fa fa-arrow-up text-warning text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">异常低值</p>
+                            <h3 id="low-anomaly-count" class="text-3xl font-bold mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-info/10 flex items-center justify-center">
+                            <i class="fa fa-arrow-down text-info text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">异常百分比均值</p>
+                            <h3 id="avg-anomaly-percentage" class="text-3xl font-bold mt-1">0%</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="fa fa-pie-chart text-primary text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 异常分析控制区 -->
+            <div class="card p-6 mb-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div class="flex items-center gap-4">
+                        <div class="flex border rounded-lg overflow-hidden">
+                            <button id="quantity-all" class="px-4 py-2 bg-primary text-white">全部数量</button>
+                            <button id="quantity-1" class="px-4 py-2 bg-gray-100 hover:bg-gray-200">数量=1</button>
+                            <button id="quantity-other" class="px-4 py-2 bg-gray-100 hover:bg-gray-200">数量≠1</button>
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <label for="iqr-coefficient" class="text-gray-600">IQR系数：</label>
+                            <input type="number" id="iqr-coefficient" value="1.5" min="0.1" max="5" step="0.1"
+                                class="w-20 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <button id="calculate-anomaly" class="btn-primary">
+                                <i class="fa fa-calculator mr-1"></i>计算异常值
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <button id="export-anomalies" class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-all-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-download mr-1"></i>导出异常值
+                        </button>
+                        
+                        <div class="flex items-center">
+                            <label for="anomaly-page-size" class="mr-2 text-gray-600">每页显示：</label>
+                            <select id="anomaly-page-size" class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                <option value="10">10条/页</option>
+                                <option value="50">50条/页</option>
+                                <option value="100">100条/页</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 搜索框 -->
+                <div class="mb-6">
+                    <div class="relative">
+                        <input type="text" id="anomaly-search" placeholder="搜索供应商或物料码..." 
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <!-- 表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-fixed-layout table-sticky row-zebra rounded-lg overflow-hidden">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/12">物料码</th>
+                                <!-- 供应商列将通过JavaScript动态填充 -->
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/12">上下限区间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="anomaly-table-body">
+                            <!-- 表格内容将通过JavaScript动态填充 -->
+                            <tr>
+                                <td colspan="100" class="py-8 text-center text-gray-500">请先导入数据并计算异常值</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="flex items-center justify-between mt-6" id="anomaly-pagination">
+                    <div class="text-sm text-gray-500">
+                        显示 <span id="anomaly-start">0</span> - <span id="anomaly-end">0</span> 条，共 <span id="anomaly-total">0</span> 条
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="anomaly-prev" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-chevron-left text-sm"></i>
+                        </button>
+                        <div id="anomaly-page-numbers" class="flex items-center gap-1">
+                            <!-- 页码将通过JavaScript动态填充 -->
+                        </div>
+                        <button id="anomaly-next" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-chevron-right text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 异常分析图表 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">供应商异常值分布</h3>
+                    <div class="h-80">
+                        <canvas id="supplier-anomaly-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">异常值比例统计</h3>
+                    <div class="h-80">
+                        <canvas id="anomaly-ratio-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 供应商异常统计 -->
+            <div class="card p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4">供应商异常统计</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">供应商名称</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">正常值个数</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">异常值个数</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">异常百分比</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supplier-anomaly-stats">
+                            <!-- 统计数据将通过JavaScript动态填充 -->
+                            <tr>
+                                <td colspan="4" class="py-8 text-center text-gray-500">请先计算异常值</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 成本分析区域 -->
+        <section id="cost-analysis-section" class="py-8 hidden animate-fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold mb-2">成本分析</h2>
+                <p class="text-gray-500">分析潜在的降本空间和金额，优化采购决策</p>
+            </div>
+            
+            <!-- 降本概览卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">总降本潜力</p>
+                            <h3 id="total-cost-reduction" class="text-3xl font-bold mt-1 text-success">¥0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                            <i class="fa fa-line-chart text-success text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">平均降本比例</p>
+                            <h3 id="avg-cost-reduction-ratio" class="text-3xl font-bold mt-1">0%</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <i class="fa fa-percent text-primary text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">涉及物料数</p>
+                            <h3 id="cost-reduction-materials" class="text-3xl font-bold mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
+                            <i class="fa fa-cube text-secondary text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 降本分析图表 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">降本金额分布</h3>
+                    <div class="h-80">
+                        <canvas id="cost-reduction-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card p-6">
+                    <h3 class="text-lg font-semibold mb-4">降本金额TOP 10物料</h3>
+                    <div class="h-80">
+                        <canvas id="top-materials-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 降本计算说明 -->
+            <div class="card p-6 mb-6">
+                <h3 class="text-lg font-semibold mb-4">降本金额计算说明</h3>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="mb-2">对于每个行项目，降本金额计算方式如下：</p>
+                    <ol class="list-decimal pl-5 space-y-1 text-gray-700">
+                        <li>计算除异常值之外的供应商报价平均值</li>
+                        <li>对于异常高值，计算其与平均值的差价（异常值 - 平均值）</li>
+                        <li>根据2024年历史采购数据金额，计算潜在降本金额：差价 × 历史采购数量</li>
+                        <li>所有异常高值的降本金额总和即为总降本潜力</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <!-- 表格控制区 -->
+            <div class="card p-6 mb-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div class="flex items-center">
+                        <div class="relative">
+                            <input type="text" id="cost-search" placeholder="搜索供应商或物料码..." 
+                                class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center">
+                            <label for="cost-page-size" class="mr-2 text-gray-600">每页显示：</label>
+                            <select id="cost-page-size" class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                <option value="10">10条/页</option>
+                                <option value="50">50条/页</option>
+                                <option value="100">100条/页</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <label for="cost-sort" class="mr-2 text-gray-600">排序：</label>
+                            <select id="cost-sort" class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                                <option value="amount-desc">降本金额降序</option>
+                                <option value="amount-asc">降本金额升序</option>
+                                <option value="material-asc">物料码升序</option>
+                                <option value="material-desc">物料码降序</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 表格 -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-fixed-layout table-sticky row-zebra rounded-lg overflow-hidden">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/8">物料码</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/8">供应商</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/8">异常报价</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/8">正常均价</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/8">差价</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/8">历史采购金额</th>
+                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700 w-1/8">降本金额</th>
+                                <th class="py-3 px-4 text-center text-sm font-semibold text-gray-700 w-1/8">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cost-table-body">
+                            <!-- 表格内容将通过JavaScript动态填充 -->
+                            <tr>
+                                <td colspan="8" class="py-8 text-center text-gray-500">请先完成报价异常分析</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="flex items-center justify-between mt-6" id="cost-pagination">
+                    <div class="text-sm text-gray-500">
+                        显示 <span id="cost-start">0</span> - <span id="cost-end">0</span> 条，共 <span id="cost-total">0</span> 条
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="cost-prev" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-chevron-left text-sm"></i>
+                        </button>
+                        <div id="cost-page-numbers" class="flex items-center gap-1">
+                            <!-- 页码将通过JavaScript动态填充 -->
+                        </div>
+                        <button id="cost-next" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-chevron-right text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 大模型决策支持区域 -->
+        <section id="ai-section" class="py-8 hidden animate-fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold mb-2">大模型决策支持</h2>
+                <p class="text-gray-500">基于分析结果提供智能决策建议和问答支持</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 问答区域 -->
+                <div class="lg:col-span-2 card overflow-hidden flex flex-col h-[600px]">
+                    <div class="p-6 border-b">
+                        <h3 class="text-lg font-semibold">智能问答</h3>
+                        <p class="text-sm text-gray-500 mt-1">基于您的报价数据获取分析建议和回答</p>
+                    </div>
+                    
+                    <div id="chat-messages" class="flex-grow p-6 overflow-y-auto space-y-6">
+                        <!-- 初始消息 -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <i class="fa fa-robot text-primary"></i>
+                            </div>
+                            <div class="bg-gray-100 rounded-lg rounded-tl-none px-4 py-3 max-w-[80%]">
+                                <p>您好！我是报价分析助手，可以帮您分析电缆桥架报价数据。请导入数据后提出您的问题，例如：</p>
+                                <ul class="list-disc pl-5 mt-2 space-y-1 text-sm">
+                                    <li>哪些供应商的报价异常值最多？</li>
+                                    <li>降本潜力最大的前三个物料是什么？</li>
+                                    <li>推荐选择哪些供应商可以最大限度降低成本？</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6 border-t">
+                        <div class="flex gap-3">
+                            <input type="text" id="ai-question" placeholder="请输入您的问题..." 
+                                class="flex-grow pl-4 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                            <button id="send-question" class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 快速分析 -->
+                <div class="card p-6 h-[600px] overflow-y-auto">
+                    <h3 class="text-lg font-semibold mb-4">快速分析建议</h3>
+                    
+                    <div id="quick-analysis" class="space-y-6">
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <i class="fa fa-lightbulb-o text-warning mr-2"></i>
+                                总体分析
+                            </h4>
+                            <p class="text-gray-700 text-sm">请先导入数据以获取分析建议</p>
+                        </div>
+                        
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <i class="fa fa-exclamation-circle text-danger mr-2"></i>
+                                异常报价提醒
+                            </h4>
+                            <p class="text-gray-700 text-sm">请先计算异常值以获取提醒</p>
+                        </div>
+                        
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <i class="fa fa-money text-success mr-2"></i>
+                                降本建议
+                            </h4>
+                            <p class="text-gray-700 text-sm">请先完成成本分析以获取建议</p>
+                        </div>
+                        
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h4 class="font-medium mb-2 flex items-center">
+                                <i class="fa fa-handshake-o text-primary mr-2"></i>
+                                供应商选择建议
+                            </h4>
+                            <p class="text-gray-700 text-sm">请先完成所有分析步骤以获取建议</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="glass border-t py-6">
+        <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>电缆桥架报价分析系统 &copy; 2024</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript 代码 -->
+    <script>
+        // 全局数据存储
+        const appData = {
+            rawData: [],           // 原始数据
+            suppliers: [],         // 供应商列表
+            materialCodes: [],     // 物料码列表
+            supplierData: [],      // 按供应商维度的数据
+            anomalyData: [],       // 异常分析数据
+            costReductionData: [], // 成本分析数据
+            currentQuantityFilter: 'all', // 当前数量筛选条件
+            iqrCoefficient: 1.5    // IQR系数
+        };
+
+        // DOM 元素引用
+        const elements = {
+            // 导航元素
+            navImport: document.getElementById('nav-import'),
+            navBasic: document.getElementById('nav-basic'),
+            navAnomaly: document.getElementById('nav-anomaly'),
+            navCost: document.getElementById('nav-cost'),
+            navAi: document.getElementById('nav-ai'),
+            mobileMenuBtn: document.getElementById('mobile-menu-btn'),
+            mobileMenu: document.getElementById('mobile-menu'),
+            mobileNavImport: document.getElementById('mobile-nav-import'),
+            mobileNavBasic: document.getElementById('mobile-nav-basic'),
+            mobileNavAnomaly: document.getElementById('mobile-nav-anomaly'),
+            mobileNavCost: document.getElementById('mobile-nav-cost'),
+            mobileNavAi: document.getElementById('mobile-nav-ai'),
+            
+            // 区域元素
+            importSection: document.getElementById('import-section'),
+            basicAnalysisSection: document.getElementById('basic-analysis-section'),
+            anomalyAnalysisSection: document.getElementById('anomaly-analysis-section'),
+            costAnalysisSection: document.getElementById('cost-analysis-section'),
+            aiSection: document.getElementById('ai-section'),
+            
+            // 导入相关元素
+            dropArea: document.getElementById('drop-area'),
+            fileInput: document.getElementById('file-input'),
+            importStatus: document.getElementById('import-status'),
+            statusIcon: document.getElementById('status-icon'),
+            statusTitle: document.getElementById('status-title'),
+            progressBar: document.getElementById('progress-bar'),
+            statusMessage: document.getElementById('status-message'),
+            
+            // 报价基本分析元素
+            supplierCount: document.getElementById('supplier-count'),
+            materialCount: document.getElementById('material-count'),
+            totalMax: document.getElementById('total-max'),
+            totalMin: document.getElementById('total-min'),
+            basicSearch: document.getElementById('basic-search'),
+            basicPageSize: document.getElementById('basic-page-size'),
+            basicSort: document.getElementById('basic-sort'),
+            basicTableBody: document.getElementById('basic-table-body'),
+            basicPagination: document.getElementById('basic-pagination'),
+            basicStart: document.getElementById('basic-start'),
+            basicEnd: document.getElementById('basic-end'),
+            basicTotal: document.getElementById('basic-total'),
+            basicPrev: document.getElementById('basic-prev'),
+            basicNext: document.getElementById('basic-next'),
+            basicPageNumbers: document.getElementById('basic-page-numbers'),
+            
+            // 供应商详情模态框
+            supplierDetailModal: document.getElementById('supplier-detail-modal'),
+            modalTitle: document.getElementById('modal-title'),
+            closeModal: document.getElementById('close-modal'),
+            closeModalBtn: document.getElementById('close-modal-btn'),
+            modalSupplierName: document.getElementById('modal-supplier-name'),
+            modalTotalPrice: document.getElementById('modal-total-price'),
+            modalPriceRank: document.getElementById('modal-price-rank'),
+            modalMaterialsBody: document.getElementById('modal-materials-body'),
+            
+            // 报价异常分析元素
+            anomalyTotalCount: document.getElementById('anomaly-total-count'),
+            anomalyCount: document.getElementById('anomaly-count'),
+            highAnomalyCount: document.getElementById('high-anomaly-count'),
+            lowAnomalyCount: document.getElementById('low-anomaly-count'),
+            quantityAll: document.getElementById('quantity-all'),
+            quantity1: document.getElementById('quantity-1'),
+            quantityOther: document.getElementById('quantity-other'),
+            iqrCoefficient: document.getElementById('iqr-coefficient'),
+            calculateAnomaly: document.getElementById('calculate-anomaly'),
+            exportAnomalies: document.getElementById('export-anomalies'),
+            anomalySearch: document.getElementById('anomaly-search'),
+            anomalyPageSize: document.getElementById('anomaly-page-size'),
+            anomalyTableBody: document.getElementById('anomaly-table-body'),
+            anomalyPagination: document.getElementById('anomaly-pagination'),
+            anomalyStart: document.getElementById('anomaly-start'),
+            anomalyEnd: document.getElementById('anomaly-end'),
+            anomalyTotal: document.getElementById('anomaly-total'),
+            anomalyPrev: document.getElementById('anomaly-prev'),
+            anomalyNext: document.getElementById('anomaly-next'),
+            anomalyPageNumbers: document.getElementById('anomaly-page-numbers'),
+            supplierAnomalyStats: document.getElementById('supplier-anomaly-stats'),
+            avgAnomalyPercentage: document.getElementById('avg-anomaly-percentage'),
+            
+            // 成本分析元素
+            totalCostReduction: document.getElementById('total-cost-reduction'),
+            avgCostReductionRatio: document.getElementById('avg-cost-reduction-ratio'),
+            costReductionMaterials: document.getElementById('cost-reduction-materials'),
+            costSearch: document.getElementById('cost-search'),
+            costPageSize: document.getElementById('cost-page-size'),
+            costSort: document.getElementById('cost-sort'),
+            costTableBody: document.getElementById('cost-table-body'),
+            costPagination: document.getElementById('cost-pagination'),
+            costStart: document.getElementById('cost-start'),
+            costEnd: document.getElementById('cost-end'),
+            costTotal: document.getElementById('cost-total'),
+            costPrev: document.getElementById('cost-prev'),
+            costNext: document.getElementById('cost-next'),
+            costPageNumbers: document.getElementById('cost-page-numbers'),
+            
+            // AI决策支持元素
+            chatMessages: document.getElementById('chat-messages'),
+            aiQuestion: document.getElementById('ai-question'),
+            sendQuestion: document.getElementById('send-question'),
+            quickAnalysis: document.getElementById('quick-analysis')
+        };
+
+        // 图表对象
+        const charts = {
+            supplierTotalChart: null,
+            priceRankChart: null,
+            supplierAnomalyChart: null,
+            anomalyRatioChart: null,
+            costReductionChart: null,
+            topMaterialsChart: null,
+            supplierAveragePriceChart: null
+        };
+
+        // 页面状态
+        const pageState = {
+            basic: {
+                currentPage: 1,
+                pageSize: 10,
+                sortBy: 'total-desc',
+                searchTerm: ''
+            },
+            anomaly: {
+                currentPage: 1,
+                pageSize: 10,
+                searchTerm: ''
+            },
+            cost: {
+                currentPage: 1,
+                pageSize: 10,
+                sortBy: 'amount-desc',
+                searchTerm: ''
+            }
+        };
+
+        // 初始化函数
+        function init() {
+            setupEventListeners();
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 导航事件
+            elements.navImport.addEventListener('click', () => showSection('import'));
+            elements.navBasic.addEventListener('click', () => showSection('basic'));
+            elements.navAnomaly.addEventListener('click', () => showSection('anomaly'));
+            elements.navCost.addEventListener('click', () => showSection('cost'));
+            elements.navAi.addEventListener('click', () => showSection('ai'));
+            
+            // 移动端导航
+            elements.mobileMenuBtn.addEventListener('click', () => {
+                elements.mobileMenu.classList.toggle('hidden');
+            });
+            elements.mobileNavImport.addEventListener('click', () => {
+                showSection('import');
+                elements.mobileMenu.classList.add('hidden');
+            });
+            elements.mobileNavBasic.addEventListener('click', () => {
+                showSection('basic');
+                elements.mobileMenu.classList.add('hidden');
+            });
+            elements.mobileNavAnomaly.addEventListener('click', () => {
+                showSection('anomaly');
+                elements.mobileMenu.classList.add('hidden');
+            });
+            elements.mobileNavCost.addEventListener('click', () => {
+                showSection('cost');
+                elements.mobileMenu.classList.add('hidden');
+            });
+            elements.mobileNavAi.addEventListener('click', () => {
+                showSection('ai');
+                elements.mobileMenu.classList.add('hidden');
+            });
+            
+            // 导入相关事件
+            elements.dropArea.addEventListener('click', () => elements.fileInput.click());
+            elements.fileInput.addEventListener('change', handleFileSelect);
+            
+            // 拖放事件
+            elements.dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.dropArea.classList.add('border-primary');
+            });
+            
+            elements.dropArea.addEventListener('dragleave', () => {
+                elements.dropArea.classList.remove('border-primary');
+            });
+            
+            elements.dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.dropArea.classList.remove('border-primary');
+                
+                if (e.dataTransfer.files.length) {
+                    processFile(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // 报价基本分析事件
+            elements.basicSearch.addEventListener('input', (e) => {
+                pageState.basic.searchTerm = e.target.value.trim();
+                pageState.basic.currentPage = 1;
+                renderBasicAnalysisTable();
+            });
+            
+            elements.basicPageSize.addEventListener('change', (e) => {
+                pageState.basic.pageSize = parseInt(e.target.value);
+                pageState.basic.currentPage = 1;
+                renderBasicAnalysisTable();
+            });
+            
+            elements.basicSort.addEventListener('change', (e) => {
+                pageState.basic.sortBy = e.target.value;
+                renderBasicAnalysisTable();
+            });
+            
+            elements.basicPrev.addEventListener('click', () => {
+                if (pageState.basic.currentPage > 1) {
+                    pageState.basic.currentPage--;
+                    renderBasicAnalysisTable();
+                }
+            });
+            
+            elements.basicNext.addEventListener('click', () => {
+                const totalPages = Math.ceil(getFilteredBasicData().length / pageState.basic.pageSize);
+                if (pageState.basic.currentPage < totalPages) {
+                    pageState.basic.currentPage++;
+                    renderBasicAnalysisTable();
+                }
+            });
+            
+            // 供应商详情模态框事件
+            elements.closeModal.addEventListener('click', () => {
+                elements.supplierDetailModal.classList.add('hidden');
+            });
+            
+            elements.closeModalBtn.addEventListener('click', () => {
+                elements.supplierDetailModal.classList.add('hidden');
+            });
+            
+            // 报价异常分析事件
+            elements.quantityAll.addEventListener('click', () => {
+                setQuantityFilter('all');
+            });
+            
+            elements.quantity1.addEventListener('click', () => {
+                setQuantityFilter('1');
+            });
+            
+            elements.quantityOther.addEventListener('click', () => {
+                setQuantityFilter('other');
+            });
+            
+            elements.calculateAnomaly.addEventListener('click', calculateAnomalyValues);
+            
+            elements.exportAnomalies.addEventListener('click', exportAnomalyData);
+            
+            elements.anomalySearch.addEventListener('input', (e) => {
+                pageState.anomaly.searchTerm = e.target.value.trim();
+                pageState.anomaly.currentPage = 1;
+                renderAnomalyTable();
+            });
+            
+            elements.anomalyPageSize.addEventListener('change', (e) => {
+                pageState.anomaly.pageSize = parseInt(e.target.value);
+                pageState.anomaly.currentPage = 1;
+                renderAnomalyTable();
+            });
+            
+            elements.anomalyPrev.addEventListener('click', () => {
+                if (pageState.anomaly.currentPage > 1) {
+                    pageState.anomaly.currentPage--;
+                    renderAnomalyTable();
+                }
+            });
+            
+            elements.anomalyNext.addEventListener('click', () => {
+                const totalPages = Math.ceil(getFilteredAnomalyData().length / pageState.anomaly.pageSize);
+                if (pageState.anomaly.currentPage < totalPages) {
+                    pageState.anomaly.currentPage++;
+                    renderAnomalyTable();
+                }
+            });
+            
+            // 成本分析事件
+            elements.costSearch.addEventListener('input', (e) => {
+                pageState.cost.searchTerm = e.target.value.trim();
+                pageState.cost.currentPage = 1;
+                renderCostTable();
+            });
+            
+            elements.costPageSize.addEventListener('change', (e) => {
+                pageState.cost.pageSize = parseInt(e.target.value);
+                pageState.cost.currentPage = 1;
+                renderCostTable();
+            });
+            
+            elements.costSort.addEventListener('change', (e) => {
+                pageState.cost.sortBy = e.target.value;
+                renderCostTable();
+            });
+            
+            elements.costPrev.addEventListener('click', () => {
+                if (pageState.cost.currentPage > 1) {
+                    pageState.cost.currentPage--;
+                    renderCostTable();
+                }
+            });
+            
+            elements.costNext.addEventListener('click', () => {
+                const totalPages = Math.ceil(getFilteredCostData().length / pageState.cost.pageSize);
+                if (pageState.cost.currentPage < totalPages) {
+                    pageState.cost.currentPage++;
+                    renderCostTable();
+                }
+            });
+            
+            // AI决策支持事件
+            elements.sendQuestion.addEventListener('click', sendQuestionToAI);
+            elements.aiQuestion.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendQuestionToAI();
+                }
+            });
+        }
+
+        // 显示指定区域
+        function showSection(sectionName) {
+            // 隐藏所有区域
+            elements.importSection.classList.add('hidden');
+            elements.basicAnalysisSection.classList.add('hidden');
+            elements.anomalyAnalysisSection.classList.add('hidden');
+            elements.costAnalysisSection.classList.add('hidden');
+            elements.aiSection.classList.add('hidden');
+            
+            // 重置所有导航按钮样式
+            document.querySelectorAll('.nav-btn, .mobile-nav-btn').forEach(btn => {
+                btn.classList.remove('bg-primary', 'text-white');
+                btn.classList.add('hover:bg-primary/10');
+            });
+            
+            // 显示选中区域并设置导航按钮样式
+            switch(sectionName) {
+                case 'import':
+                    elements.importSection.classList.remove('hidden');
+                    elements.navImport.classList.add('bg-primary', 'text-white');
+                    elements.navImport.classList.remove('hover:bg-primary/10');
+                    elements.mobileNavImport.classList.add('bg-primary', 'text-white');
+                    elements.mobileNavImport.classList.remove('hover:bg-primary/10');
+                    break;
+                case 'basic':
+                    elements.basicAnalysisSection.classList.remove('hidden');
+                    elements.navBasic.classList.add('bg-primary', 'text-white');
+                    elements.navBasic.classList.remove('hover:bg-primary/10');
+                    elements.mobileNavBasic.classList.add('bg-primary', 'text-white');
+                    elements.mobileNavBasic.classList.remove('hover:bg-primary/10');
+                    break;
+                case 'anomaly':
+                    elements.anomalyAnalysisSection.classList.remove('hidden');
+                    elements.navAnomaly.classList.add('bg-primary', 'text-white');
+                    elements.navAnomaly.classList.remove('hover:bg-primary/10');
+                    elements.mobileNavAnomaly.classList.add('bg-primary', 'text-white');
+                    elements.mobileNavAnomaly.classList.remove('hover:bg-primary/10');
+                    break;
+                case 'cost':
+                    elements.costAnalysisSection.classList.remove('hidden');
+                    elements.navCost.classList.add('bg-primary', 'text-white');
+                    elements.navCost.classList.remove('hover:bg-primary/10');
+                    elements.mobileNavCost.classList.add('bg-primary', 'text-white');
+                    elements.mobileNavCost.classList.remove('hover:bg-primary/10');
+                    break;
+                case 'ai':
+                    elements.aiSection.classList.remove('hidden');
+                    elements.navAi.classList.add('bg-primary', 'text-white');
+                    elements.navAi.classList.remove('hover:bg-primary/10');
+                    elements.mobileNavAi.classList.add('bg-primary', 'text-white');
+                    elements.mobileNavAi.classList.remove('hover:bg-primary/10');
+                    break;
+            }
+        }
+
+        // 处理文件选择
+        function handleFileSelect(e) {
+            if (e.target.files.length) {
+                processFile(e.target.files[0]);
+            }
+        }
+
+        // 处理文件
+        function processFile(file) {
+            // 检查文件类型
+            if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                alert('请选择Excel文件（.xlsx或.xls格式）');
+                return;
+            }
+            
+            // 显示导入状态
+            showImportStatus('processing', '正在导入文件', '准备读取文件...', 0);
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    // 更新进度
+                    showImportStatus('processing', '正在导入文件', '正在解析Excel数据...', 30);
+                    
+                    // 解析Excel
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // 获取第一个工作表
+                    const worksheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[worksheetName];
+                    
+                    // 转换为JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    // 更新进度
+                    showImportStatus('processing', '正在导入文件', '正在处理数据...', 70);
+                    
+                    // 处理数据
+                    processImportedData(jsonData);
+                    
+                    // 更新进度
+                    showImportStatus('success', '导入成功', `已成功导入 ${jsonData.length} 条数据`, 100);
+                    
+                    // 显示基本分析页面
+                    setTimeout(() => {
+                        elements.navBasic.classList.remove('hidden');
+                        elements.mobileNavBasic.classList.remove('hidden');
+                        elements.navAnomaly.classList.remove('hidden');
+                        elements.mobileNavAnomaly.classList.remove('hidden');
+                        elements.navCost.classList.remove('hidden');
+                        elements.mobileNavCost.classList.remove('hidden');
+                        elements.navAi.classList.remove('hidden');
+                        elements.mobileNavAi.classList.remove('hidden');
+                        showSection('basic');
+                    }, 1500);
+                    
+                } catch (error) {
+                    console.error('文件处理错误:', error);
+                    showImportStatus('error', '导入失败', `处理文件时发生错误: ${error.message}`, 0);
+                }
+            };
+            
+            reader.onerror = function() {
+                showImportStatus('error', '导入失败', '读取文件时发生错误', 0);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 显示导入状态
+        function showImportStatus(type, title, message, progress) {
+            elements.importStatus.classList.remove('hidden');
+            elements.statusTitle.textContent = title;
+            elements.statusMessage.textContent = message;
+            elements.progressBar.style.width = `${progress}%`;
+            
+            // 设置状态图标
+            elements.statusIcon.className = '';
+            switch(type) {
+                case 'processing':
+                    elements.statusIcon.classList.add('fa', 'fa-spinner', 'fa-spin', 'text-primary');
+                    break;
+                case 'success':
+                    elements.statusIcon.classList.add('fa', 'fa-check-circle', 'text-success');
+                    break;
+                case 'error':
+                    elements.statusIcon.classList.add('fa', 'fa-exclamation-circle', 'text-danger');
+                    break;
+            }
+        }
+
+        // 处理导入的数据
+        function processImportedData(jsonData) {
+            // 清空之前的数据
+            appData.rawData = [];
+            appData.suppliers = [];
+            appData.materialCodes = [];
+            appData.supplierData = [];
+            appData.anomalyData = [];
+            appData.costReductionData = [];
+            
+            // 提取供应商列表（排除第一列和最后两列）
+            if (jsonData.length > 0) {
+                const firstRow = jsonData[0];
+                const keys = Object.keys(firstRow);
+                
+                // 第一列是物料码，最后两列是预估数量和历史采购金额
+                appData.suppliers = keys.slice(1, -2);
+                appData.suppliers = appData.suppliers.filter(supplier => supplier.trim() !== '');
+                
+                // 处理原始数据
+                jsonData.forEach(item => {
+                    const materialCode = item[keys[0]];
+                    if (materialCode) {
+                        appData.materialCodes.push(materialCode);
+                        
+                        const rowData = {
+                            materialCode: materialCode,
+                            prices: {},
+                            estimatedQuantity: parseFloat(item[keys[keys.length - 2]] || 0),
+                            historyAmount: parseFloat(item[keys[keys.length - 1]] || 0)
+                        };
+                        
+                        // 提取各供应商报价
+                        appData.suppliers.forEach(supplier => {
+                            rowData.prices[supplier] = parseFloat(item[supplier] || 0);
+                        });
+                        
+                        appData.rawData.push(rowData);
+                    }
+                });
+                
+                // 去重物料码
+                appData.materialCodes = [...new Set(appData.materialCodes)];
+                
+                // 按供应商维度处理数据
+                processSupplierData();
+                
+                // 渲染基本分析
+                renderBasicAnalysis();
+            }
+        }
+
+        // 按供应商维度处理数据
+        function processSupplierData() {
+            appData.supplierData = [];
+            
+            appData.suppliers.forEach(supplier => {
+                const supplierItems = [];
+                let totalPrice = 0;
+                let totalQuantity = 0;
+                
+                appData.rawData.forEach(item => {
+                    const price = item.prices[supplier] || 0;
+                    const quantity = item.estimatedQuantity || 0;
+                    const itemTotal = price * quantity;
+                    
+                    supplierItems.push({
+                        materialCode: item.materialCode,
+                        price: price,
+                        quantity: quantity,
+                        total: itemTotal
+                    });
+                    
+                    totalPrice += itemTotal;
+                    totalQuantity += quantity;
+                });
+                
+                const averagePrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+                
+                appData.supplierData.push({
+                    name: supplier,
+                    totalPrice: totalPrice,
+                    averagePrice: averagePrice,
+                    materialCount: new Set(supplierItems.map(i => i.materialCode)).size,
+                    items: supplierItems,
+                    priceRank: 0 // 暂时设为0，后面会计算
+                });
+            });
+            
+            // 计算价格排名（1为最低价）
+            const sortedByTotal = [...appData.supplierData].sort((a, b) => a.totalPrice - b.totalPrice);
+            sortedByTotal.forEach((supplier, index) => {
+                const originalSupplier = appData.supplierData.find(s => s.name === supplier.name);
+                if (originalSupplier) {
+                    originalSupplier.priceRank = index + 1;
+                }
+            });
+        }
+
+        // 渲染报价基本分析
+        function renderBasicAnalysis() {
+            // 更新概览数据
+            elements.supplierCount.textContent = appData.suppliers.length;
+            elements.materialCount.textContent = appData.materialCodes.length;
+            
+            if (appData.supplierData.length > 0) {
+                const maxSupplier = appData.supplierData.reduce((prev, curr) => curr.totalPrice > prev.totalPrice ? curr : prev, appData.supplierData[0]);
+                const minSupplier = appData.supplierData.reduce((prev, curr) => curr.totalPrice < prev.totalPrice ? curr : prev, appData.supplierData[0]);
+                elements.totalMax.textContent = `最高: ¥${maxSupplier.totalPrice.toFixed(2)}（${maxSupplier.name}）`;
+                elements.totalMin.textContent = `最低: ¥${minSupplier.totalPrice.toFixed(2)}（${minSupplier.name}）`;
+            } else {
+                elements.totalMax.textContent = '最高: ¥0';
+                elements.totalMin.textContent = '最低: ¥0';
+            }
+            
+            // 渲染表格
+            renderBasicAnalysisTable();
+            
+            // 渲染图表
+            renderBasicAnalysisCharts();
+        }
+
+        // 获取过滤后的基本分析数据
+        function getFilteredBasicData() {
+            let filtered = [...appData.supplierData];
+            
+            // 搜索过滤
+            if (pageState.basic.searchTerm) {
+                const searchTerm = pageState.basic.searchTerm.toLowerCase();
+                filtered = filtered.filter(supplier => 
+                    supplier.name.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // 排序
+            switch(pageState.basic.sortBy) {
+                case 'total-asc':
+                    filtered.sort((a, b) => a.totalPrice - b.totalPrice);
+                    break;
+                case 'total-desc':
+                    filtered.sort((a, b) => b.totalPrice - a.totalPrice);
+                    break;
+                case 'name-asc':
+                    filtered.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'name-desc':
+                    filtered.sort((a, b) => b.name.localeCompare(a.name));
+                    break;
+            }
+            
+            return filtered;
+        }
+
+        // 渲染基本分析表格
+        function renderBasicAnalysisTable() {
+            const filteredData = getFilteredBasicData();
+            const totalItems = filteredData.length;
+            const startIndex = (pageState.basic.currentPage - 1) * pageState.basic.pageSize;
+            const endIndex = Math.min(startIndex + pageState.basic.pageSize, totalItems);
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+            
+            // 更新表格内容
+            elements.basicTableBody.innerHTML = '';
+            
+            if (paginatedData.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="5" class="py-8 text-center text-gray-500">没有找到匹配的数据</td>`;
+                elements.basicTableBody.appendChild(row);
+            } else {
+                paginatedData.forEach(supplier => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50 transition-all-300';
+                    
+                    row.innerHTML = `
+                        <td class="py-3 px-4">${supplier.name}</td>
+                        <td class="py-3 px-4">¥${supplier.totalPrice.toFixed(2)}</td>
+                        <td class="py-3 px-4">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                                ${supplier.priceRank}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">${supplier.materialCount}</td>
+                        <td class="py-3 px-4 text-center">
+                            <button class="view-supplier-details text-primary hover:text-primary/80" data-supplier="${encodeURIComponent(supplier.name)}">
+                                <i class="fa fa-eye mr-1"></i>详情
+                            </button>
+                        </td>
+                    `;
+                    
+                    elements.basicTableBody.appendChild(row);
+                });
+                
+                // 添加详情按钮事件
+                document.querySelectorAll('.view-supplier-details').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const supplierName = decodeURIComponent(e.currentTarget.dataset.supplier);
+                        showSupplierDetails(supplierName);
+                    });
+                });
+            }
+            
+            // 更新分页信息
+            elements.basicStart.textContent = totalItems > 0 ? startIndex + 1 : 0;
+            elements.basicEnd.textContent = endIndex;
+            elements.basicTotal.textContent = totalItems;
+            
+            // 更新分页按钮
+            renderPagination(
+                elements.basicPageNumbers,
+                pageState.basic.currentPage,
+                Math.ceil(totalItems / pageState.basic.pageSize),
+                (page) => {
+                    pageState.basic.currentPage = page;
+                    renderBasicAnalysisTable();
+                }
+            );
+            
+            // 禁用/启用上一页/下一页按钮
+            elements.basicPrev.disabled = pageState.basic.currentPage === 1;
+            elements.basicNext.disabled = pageState.basic.currentPage >= Math.ceil(totalItems / pageState.basic.pageSize) || totalItems === 0;
+        }
+
+        // 显示供应商详情
+        function showSupplierDetails(supplierName) {
+            const supplier = appData.supplierData.find(s => s.name === supplierName);
+            if (!supplier) return;
+            
+            // 更新模态框内容
+            elements.modalTitle.textContent = `${supplier.name} 详情`;
+            elements.modalSupplierName.textContent = supplier.name;
+            elements.modalTotalPrice.textContent = `¥${supplier.totalPrice.toFixed(2)}`;
+            elements.modalPriceRank.textContent = supplier.priceRank;
+            
+            // 更新物料明细
+            elements.modalMaterialsBody.innerHTML = '';
+            
+            supplier.items.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50';
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4">${item.materialCode}</td>
+                    <td class="py-3 px-4">¥${item.price.toFixed(2)}</td>
+                    <td class="py-3 px-4">${item.quantity}</td>
+                    <td class="py-3 px-4">¥${item.total.toFixed(2)}</td>
+                `;
+                
+                elements.modalMaterialsBody.appendChild(row);
+            });
+            
+            // 显示模态框
+            elements.supplierDetailModal.classList.remove('hidden');
+        }
+
+        // 渲染基本分析图表
+        function renderBasicAnalysisCharts() {
+            // 供应商总报价对比图表
+            const ctx1 = document.getElementById('supplier-total-chart').getContext('2d');
+            
+            // 只显示前10个供应商，避免图表过于拥挤
+            const topSuppliers = [...appData.supplierData]
+                .sort((a, b) => b.totalPrice - a.totalPrice)
+                .slice(0, 10);
+            
+            const supplierNames = topSuppliers.map(s => s.name);
+            const supplierTotals = topSuppliers.map(s => s.totalPrice);
+            
+            if (charts.supplierTotalChart) {
+                charts.supplierTotalChart.destroy();
+            }
+            
+            charts.supplierTotalChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: supplierNames,
+                    datasets: [{
+                        label: '总报价',
+                        data: supplierTotals,
+                        backgroundColor: 'rgba(22, 93, 255, 0.7)',
+                        borderColor: 'rgba(22, 93, 255, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '总报价 (¥)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `总报价: ¥${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 供应商平均单价对比图表
+            const ctx2 = document.getElementById('supplier-average-price-chart').getContext('2d');
+            const supplierAverages = topSuppliers.map(s => s.averagePrice);
+
+            if (charts.supplierAveragePriceChart) {
+                charts.supplierAveragePriceChart.destroy();
+            }
+
+            charts.supplierAveragePriceChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: supplierNames,
+                    datasets: [{
+                        label: '平均单价',
+                        data: supplierAverages,
+                        backgroundColor: 'rgba(54, 207, 201, 0.7)',
+                        borderColor: 'rgba(54, 207, 201, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '平均单价 (¥)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `平均单价: ¥${context.raw.toFixed(4)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 设置数量筛选条件
+        function setQuantityFilter(filter) {
+            appData.currentQuantityFilter = filter;
+            
+            // 更新按钮样式
+            elements.quantityAll.classList.remove('bg-primary', 'text-white');
+            elements.quantity1.classList.remove('bg-primary', 'text-white');
+            elements.quantityOther.classList.remove('bg-primary', 'text-white');
+            
+            elements.quantityAll.classList.add('bg-gray-100', 'hover:bg-gray-200');
+            elements.quantity1.classList.add('bg-gray-100', 'hover:bg-gray-200');
+            elements.quantityOther.classList.add('bg-gray-100', 'hover:bg-gray-200');
+            
+            switch(filter) {
+                case 'all':
+                    elements.quantityAll.classList.remove('bg-gray-100', 'hover:bg-gray-200');
+                    elements.quantityAll.classList.add('bg-primary', 'text-white');
+                    break;
+                case '1':
+                    elements.quantity1.classList.remove('bg-gray-100', 'hover:bg-gray-200');
+                    elements.quantity1.classList.add('bg-primary', 'text-white');
+                    break;
+                case 'other':
+                    elements.quantityOther.classList.remove('bg-gray-100', 'hover:bg-gray-200');
+                    elements.quantityOther.classList.add('bg-primary', 'text-white');
+                    break;
+            }
+            
+            // 重新计算异常值（如果已计算过）
+            if (appData.anomalyData.length > 0) {
+                calculateAnomalyValues();
+            }
+        }
+
+        // 计算异常值（使用QUARTILE.INC算法）
+        function calculateAnomalyValues() {
+            // 获取IQR系数
+            appData.iqrCoefficient = parseFloat(elements.iqrCoefficient.value) || 1.5;
+            
+            // 清空之前的异常数据
+            appData.anomalyData = [];
+            
+            // 筛选数据
+            let filteredRawData = [...appData.rawData];
+            if (appData.currentQuantityFilter === '1') {
+                filteredRawData = filteredRawData.filter(item => item.estimatedQuantity === 1);
+            } else if (appData.currentQuantityFilter === 'other') {
+                filteredRawData = filteredRawData.filter(item => item.estimatedQuantity !== 1);
+            }
+            
+            // 为每个物料计算异常值
+            filteredRawData.forEach(item => {
+                // 收集所有供应商的报价（排除0值）
+                const prices = appData.suppliers
+                    .map(supplier => item.prices[supplier] || 0)
+                    .filter(price => price > 0);
+                
+                if (prices.length >= 4) { // 至少需要4个数据点才能计算四分位数
+                    // 排序价格
+                    const sortedPrices = [...prices].sort((a, b) => a - b);
+                    
+                    // 计算四分位数（QUARTILE.INC算法）
+                    const q1 = quartileInc(sortedPrices, 0.25);
+                    const q3 = quartileInc(sortedPrices, 0.75);
+                    const iqr = q3 - q1;
+                    const lb = q1 - appData.iqrCoefficient * iqr; // 下限
+                    const ub = q3 + appData.iqrCoefficient * iqr; // 上限
+                    
+                    // 判断每个供应商的报价是否异常
+                    const anomalies = {};
+                    appData.suppliers.forEach(supplier => {
+                        const price = item.prices[supplier] || 0;
+                        if (price === 0) {
+                            anomalies[supplier] = '无报价';
+                        } else if (price < lb) {
+                            anomalies[supplier] = '异常低';
+                        } else if (price > ub) {
+                            anomalies[supplier] = '异常高';
+                        } else {
+                            anomalies[supplier] = '正常';
+                        }
+                    });
+                    
+                    appData.anomalyData.push({
+                        materialCode: item.materialCode,
+                        estimatedQuantity: item.estimatedQuantity,
+                        historyAmount: item.historyAmount,
+                        prices: item.prices,
+                        q1: q1,
+                        q3: q3,
+                        iqr: iqr,
+                        lb: lb,
+                        ub: ub,
+                        anomalies: anomalies
+                    });
+                } else {
+                    // 数据点不足，无法计算四分位数
+                    const anomalies = {};
+                    appData.suppliers.forEach(supplier => {
+                        const price = item.prices[supplier] || 0;
+                        anomalies[supplier] = price > 0 ? '数据不足' : '无报价';
+                    });
+                    
+                    appData.anomalyData.push({
+                        materialCode: item.materialCode,
+                        estimatedQuantity: item.estimatedQuantity,
+                        historyAmount: item.historyAmount,
+                        prices: item.prices,
+                        q1: null,
+                        q3: null,
+                        iqr: null,
+                        lb: null,
+                        ub: null,
+                        anomalies: anomalies
+                    });
+                }
+            });
+            
+            // 渲染异常分析
+            renderAnomalyAnalysis();
+            
+            // 计算成本分析数据
+            calculateCostReductionData();
+            
+            // 渲染成本分析
+            renderCostAnalysis();
+            
+            // 更新AI分析
+            updateQuickAnalysis();
+        }
+
+        // QUARTILE.INC算法实现
+        function quartileInc(data, quartile) {
+            const n = data.length;
+            const index = 1 + (n - 1) * quartile;
+            const floorIndex = Math.floor(index);
+            const ceilIndex = Math.ceil(index);
+            
+            if (floorIndex === ceilIndex) {
+                return data[floorIndex - 1]; // 因为JavaScript数组是0索引
+            }
+            
+            const fraction = index - floorIndex;
+            return data[floorIndex - 1] + fraction * (data[ceilIndex - 1] - data[floorIndex - 1]);
+        }
+
+        // 获取过滤后的异常分析数据
+        function getFilteredAnomalyData() {
+            let filtered = [...appData.anomalyData];
+            
+            // 搜索过滤
+            if (pageState.anomaly.searchTerm) {
+                const searchTerm = pageState.anomaly.searchTerm.toLowerCase();
+                filtered = filtered.filter(item => {
+                    // 物料码匹配
+                    if (String(item.materialCode).toLowerCase().includes(searchTerm)) {
+                        return true;
+                    }
+                    // 行内包含匹配的供应商并且该供应商在此行有报价/状态（非“无报价”）
+                    return appData.suppliers.some(supplier => {
+                        return supplier.toLowerCase().includes(searchTerm) &&
+                            (item.prices[supplier] || 0) > 0 &&
+                            item.anomalies[supplier] !== '无报价';
+                    });
+                });
+            }
+            
+            return filtered;
+        }
+
+        // 渲染异常分析
+        function renderAnomalyAnalysis() {
+            // 更新供应商表头
+            const tableHead = elements.anomalyTableBody.parentElement.querySelector('thead tr');
+            
+            // 清除现有的供应商列（保留第一列和最后一列）
+            while (tableHead.children.length > 2) {
+                tableHead.removeChild(tableHead.children[1]);
+            }
+            
+            // 添加供应商列
+            appData.suppliers.forEach(supplier => {
+                const th = document.createElement('th');
+                th.className = 'py-3 px-4 text-left text-sm font-semibold text-gray-700';
+                th.style.width = `${100 / (appData.suppliers.length + 2)}%`;
+                th.textContent = supplier;
+                tableHead.insertBefore(th, tableHead.lastElementChild);
+            });
+            
+            // 更新概览数据
+            const totalCountUnique = new Set(appData.anomalyData.map(i => i.materialCode)).size;
+            let anomalyCount = 0;
+            let highAnomalyCount = 0;
+            let lowAnomalyCount = 0;
+
+            // 统计有效单元格与异常单元格以计算异常百分比均值
+            let validCells = 0;
+            let anomalyCells = 0;
+            
+            appData.anomalyData.forEach(item => {
+                appData.suppliers.forEach(supplier => {
+                    const status = item.anomalies[supplier];
+                    const price = item.prices[supplier] || 0;
+
+                    if (status === '异常高') {
+                        anomalyCount++;
+                        highAnomalyCount++;
+                    } else if (status === '异常低') {
+                        anomalyCount++;
+                        lowAnomalyCount++;
+                    }
+
+                    if (price > 0 && status !== '数据不足') {
+                        validCells++;
+                        if (status === '异常高' || status === '异常低') {
+                            anomalyCells++;
+                        }
+                    }
+                });
+            });
+            
+            elements.anomalyTotalCount.textContent = totalCountUnique;
+            elements.anomalyCount.textContent = anomalyCount;
+            elements.highAnomalyCount.textContent = highAnomalyCount;
+            elements.lowAnomalyCount.textContent = lowAnomalyCount;
+
+            const avgAnomalyPercent = validCells > 0 ? (anomalyCells / validCells) * 100 : 0;
+            elements.avgAnomalyPercentage.textContent = `${avgAnomalyPercent.toFixed(1)}%`;
+            
+            // 启用导出按钮
+            elements.exportAnomalies.disabled = anomalyCount === 0;
+            
+            // 渲染表格
+            renderAnomalyTable();
+            
+            // 渲染供应商异常统计
+            renderSupplierAnomalyStats();
+            
+            // 渲染图表
+            renderAnomalyAnalysisCharts();
+        }
+
+        // 渲染异常分析表格
+        function renderAnomalyTable() {
+            const filteredData = getFilteredAnomalyData();
+            const totalItems = filteredData.length;
+            const startIndex = (pageState.anomaly.currentPage - 1) * pageState.anomaly.pageSize;
+            const endIndex = Math.min(startIndex + pageState.anomaly.pageSize, totalItems);
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+            
+            // 更新表格内容
+            elements.anomalyTableBody.innerHTML = '';
+            
+            if (paginatedData.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="${appData.suppliers.length + 2}" class="py-8 text-center text-gray-500">没有找到匹配的数据</td>`;
+                elements.anomalyTableBody.appendChild(row);
+            } else {
+                paginatedData.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50 transition-all-300';
+                    
+                    // 物料码单元格
+                    let rowHtml = `<td class=\"py-3 px-4\">${item.materialCode}</td>`;
+                    
+                    // 供应商报价单元格
+                    appData.suppliers.forEach(supplier => {
+                        const price = item.prices[supplier] || 0;
+                        const status = item.anomalies[supplier];
+                        
+                        let statusClass = '';
+                        let statusText = '';
+                        
+                        switch(status) {
+                            case '异常高':
+                                statusClass = 'bg-danger/10 text-danger';
+                                statusText = '异常高';
+                                break;
+                            case '异常低':
+                                statusClass = 'bg-info/10 text-info';
+                                statusText = '异常低';
+                                break;
+                            case '正常':
+                                statusClass = 'bg-success/10 text-success';
+                                statusText = '正常';
+                                break;
+                            case '无报价':
+                                statusClass = 'bg-gray-100 text-gray-500';
+                                statusText = '无报价';
+                                break;
+                            case '数据不足':
+                                statusClass = 'bg-warning/10 text-warning';
+                                statusText = '数据不足';
+                                break;
+                        }
+                        
+                        rowHtml += `
+                            <td class=\"py-3 px-4\">
+                                <div class=\"flex flex-col\">
+                                    <span>¥${price.toFixed(2)}</span>
+                                    <span class=\"text-xs ${statusClass} px-1.5 py-0.5 rounded mt-1 inline-block\">${statusText}</span>
+                                </div>
+                            </td>
+                        `;
+                    });
+                    
+                    // 上下限区间单元格
+                    let rangeText = '无法计算';
+                    if (item.lb !== null && item.ub !== null) {
+                        rangeText = `¥${item.lb.toFixed(2)} - ¥${item.ub.toFixed(2)}`;
+                    }
+                    
+                    rowHtml += `<td class=\"py-3 px-4 whitespace-nowrap\">${rangeText}</td>`;
+                    
+                    row.innerHTML = rowHtml;
+                    elements.anomalyTableBody.appendChild(row);
+                });
+            }
+            
+            // 更新分页信息
+            elements.anomalyStart.textContent = totalItems > 0 ? startIndex + 1 : 0;
+            elements.anomalyEnd.textContent = endIndex;
+            elements.anomalyTotal.textContent = totalItems;
+            
+            // 更新分页按钮
+            renderPagination(
+                elements.anomalyPageNumbers,
+                pageState.anomaly.currentPage,
+                Math.ceil(totalItems / pageState.anomaly.pageSize),
+                (page) => {
+                    pageState.anomaly.currentPage = page;
+                    renderAnomalyTable();
+                }
+            );
+            
+            // 禁用/启用上一页/下一页按钮
+            elements.anomalyPrev.disabled = pageState.anomaly.currentPage === 1;
+            elements.anomalyNext.disabled = pageState.anomaly.currentPage >= Math.ceil(totalItems / pageState.anomaly.pageSize) || totalItems === 0;
+        }
+
+        // 渲染供应商异常统计
+        function renderSupplierAnomalyStats() {
+            elements.supplierAnomalyStats.innerHTML = '';
+            
+            if (appData.anomalyData.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="4" class="py-8 text-center text-gray-500">请先计算异常值</td>`;
+                elements.supplierAnomalyStats.appendChild(row);
+                return;
+            }
+            
+            const totalCountUnique = new Set(appData.anomalyData.map(i => i.materialCode)).size || 1;
+            
+            // 计算每个供应商的异常统计
+            appData.suppliers.forEach(supplier => {
+                let normalCount = 0;
+                let anomalyCount = 0;
+                
+                appData.anomalyData.forEach(item => {
+                    const price = item.prices[supplier] || 0;
+                    const status = item.anomalies[supplier];
+                    
+                    if (price > 0 && status !== '数据不足') {
+                        if (status === '正常') {
+                            normalCount++;
+                        } else if (status === '异常高' || status === '异常低') {
+                            anomalyCount++;
+                        }
+                    }
+                });
+                
+                const anomalyPercentage = (anomalyCount / totalCountUnique) * 100;
+                
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50';
+                
+                row.innerHTML = `
+                    <td class=\"py-3 px-4\">${supplier}</td>
+                    <td class=\"py-3 px-4\">${normalCount}</td>
+                    <td class=\"py-3 px-4\">${anomalyCount}</td>
+                    <td class=\"py-3 px-4\">
+                        <div class=\"flex items-center gap-2\">
+                            <div class=\"w-full bg-gray-200 rounded-full h-2\">
+                                <div class=\"bg-warning h-2 rounded-full\" style=\"width: ${Math.min(anomalyPercentage, 100).toFixed(1)}%\"></div>
+                            </div>
+                            <span class=\"text-sm text-gray-700\">${anomalyPercentage.toFixed(1)}%</span>
+                        </div>
+                    </td>
+                `;
+                
+                elements.supplierAnomalyStats.appendChild(row);
+            });
+        }
+
+        // 渲染异常分析图表
+        function renderAnomalyAnalysisCharts() {
+            // 供应商异常值分布图表
+            const ctx1 = document.getElementById('supplier-anomaly-chart').getContext('2d');
+            
+            const supplierNames = appData.suppliers;
+            const highAnomalies = [];
+            const lowAnomalies = [];
+            
+            appData.suppliers.forEach(supplier => {
+                let highCount = 0;
+                let lowCount = 0;
+                
+                appData.anomalyData.forEach(item => {
+                    const status = item.anomalies[supplier];
+                    if (status === '异常高') {
+                        highCount++;
+                    } else if (status === '异常低') {
+                        lowCount++;
+                    }
+                });
+                
+                highAnomalies.push(highCount);
+                lowAnomalies.push(lowCount);
+            });
+            
+            if (charts.supplierAnomalyChart) {
+                charts.supplierAnomalyChart.destroy();
+            }
+            
+            charts.supplierAnomalyChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: supplierNames,
+                    datasets: [
+                        {
+                            label: '异常高值',
+                            data: highAnomalies,
+                            backgroundColor: 'rgba(255, 77, 79, 0.7)',
+                            borderColor: 'rgba(255, 77, 79, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '异常低值',
+                            data: lowAnomalies,
+                            backgroundColor: 'rgba(64, 169, 255, 0.7)',
+                            borderColor: 'rgba(64, 169, 255, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '异常值数量'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+            
+            // 异常值比例统计图表
+            const ctx2 = document.getElementById('anomaly-ratio-chart').getContext('2d');
+            
+            let totalCount = 0;
+            let normalCount = 0;
+            let highAnomalyCount = 0;
+            let lowAnomalyCount = 0;
+            let noPriceCount = 0;
+            let insufficientDataCount = 0;
+            
+            appData.anomalyData.forEach(item => {
+                appData.suppliers.forEach(supplier => {
+                    const price = item.prices[supplier] || 0;
+                    const status = item.anomalies[supplier];
+                    
+                    totalCount++;
+                    
+                    switch(status) {
+                        case '正常':
+                            normalCount++;
+                            break;
+                        case '异常高':
+                            highAnomalyCount++;
+                            break;
+                        case '异常低':
+                            lowAnomalyCount++;
+                            break;
+                        case '无报价':
+                            noPriceCount++;
+                            break;
+                        case '数据不足':
+                            insufficientDataCount++;
+                            break;
+                    }
+                });
+            });
+            
+            if (charts.anomalyRatioChart) {
+                charts.anomalyRatioChart.destroy();
+            }
+            
+            charts.anomalyRatioChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['正常', '异常高', '异常低', '无报价', '数据不足'],
+                    datasets: [{
+                        data: [normalCount, highAnomalyCount, lowAnomalyCount, noPriceCount, insufficientDataCount],
+                        backgroundColor: [
+                            'rgba(82, 196, 26, 0.7)',   // 正常 - 绿色
+                            'rgba(255, 77, 79, 0.7)',   // 异常高 - 红色
+                            'rgba(64, 169, 255, 0.7)',  // 异常低 - 蓝色
+                            'rgba(204, 204, 204, 0.7)', // 无报价 - 灰色
+                            'rgba(250, 173, 20, 0.7)'   // 数据不足 - 黄色
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const percentage = totalCount > 0 ? ((value / totalCount) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 导出异常值数据
+        function exportAnomalyData() {
+            // 收集异常值数据
+            const anomalyExportData = [];
+            
+            appData.anomalyData.forEach(item => {
+                appData.suppliers.forEach(supplier => {
+                    const status = item.anomalies[supplier];
+                    if (status === '异常高' || status === '异常低') {
+                        anomalyExportData.push({
+                            物料码: item.materialCode,
+                            供应商: supplier,
+                            报价: item.prices[supplier] || 0,
+                            异常类型: status,
+                            预估数量: item.estimatedQuantity,
+                            历史采购金额: item.historyAmount,
+                            下限: item.lb !== null ? item.lb.toFixed(2) : '',
+                            上限: item.ub !== null ? item.ub.toFixed(2) : ''
+                        });
+                    }
+                });
+            });
+            
+            // 创建工作簿和工作表
+            const worksheet = XLSX.utils.json_to_sheet(anomalyExportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, '异常报价数据');
+            
+            // 导出文件
+            XLSX.writeFile(workbook, '电缆桥架异常报价数据.xlsx');
+        }
+
+        // 计算成本分析数据
+        function calculateCostReductionData() {
+            appData.costReductionData = [];
+            
+            appData.anomalyData.forEach(item => {
+                // 收集正常报价（排除异常值和无报价）
+                const normalPrices = [];
+                
+                appData.suppliers.forEach(supplier => {
+                    const price = item.prices[supplier] || 0;
+                    const status = item.anomalies[supplier];
+                    
+                    if (price > 0 && status === '正常') {
+                        normalPrices.push(price);
+                    }
+                });
+                
+                // 计算正常报价的平均值
+                const normalAverage = normalPrices.length > 0 
+                    ? normalPrices.reduce((sum, price) => sum + price, 0) / normalPrices.length 
+                    : 0;
+                
+                // 对每个异常高值计算降本金额
+                appData.suppliers.forEach(supplier => {
+                    const price = item.prices[supplier] || 0;
+                    const status = item.anomalies[supplier];
+                    
+                    if (price > 0 && status === '异常高' && normalPrices.length > 0) {
+                        const priceDifference = price - normalAverage;
+                        // 假设历史采购金额 = 历史采购数量 × 历史单价
+                        // 这里简化处理，用历史采购金额作为基数计算降本比例
+                        const costReduction = (priceDifference / price) * item.historyAmount;
+                        
+                        appData.costReductionData.push({
+                            materialCode: item.materialCode,
+                            supplier: supplier,
+                            abnormalPrice: price,
+                            normalAverage: normalAverage,
+                            priceDifference: priceDifference,
+                            historyAmount: item.historyAmount,
+                            costReduction: costReduction
+                        });
+                    }
+                });
+            });
+        }
+
+        // 获取过滤后的成本分析数据
+        function getFilteredCostData() {
+            let filtered = [...appData.costReductionData];
+            
+            // 搜索过滤
+            if (pageState.cost.searchTerm) {
+                const searchTerm = pageState.cost.searchTerm.toLowerCase();
+                filtered = filtered.filter(item => 
+                    String(item.materialCode).toLowerCase().includes(searchTerm) ||
+                    item.supplier.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            // 排序
+            switch(pageState.cost.sortBy) {
+                case 'amount-desc':
+                    filtered.sort((a, b) => b.costReduction - a.costReduction);
+                    break;
+                case 'amount-asc':
+                    filtered.sort((a, b) => a.costReduction - b.costReduction);
+                    break;
+                case 'material-asc':
+                    filtered.sort((a, b) => String(a.materialCode).localeCompare(String(b.materialCode)));
+                    break;
+                case 'material-desc':
+                    filtered.sort((a, b) => String(b.materialCode).localeCompare(String(a.materialCode)));
+                    break;
+            }
+            
+            return filtered;
+        }
+
+        // 渲染成本分析
+        function renderCostAnalysis() {
+            // 更新概览数据
+            const totalCostReduction = appData.costReductionData.reduce((sum, item) => sum + item.costReduction, 0);
+            const materialCount = [...new Set(appData.costReductionData.map(item => item.materialCode))].length;
+            
+            let avgRatio = 0;
+            if (appData.costReductionData.length > 0) {
+                const totalRatio = appData.costReductionData.reduce((sum, item) => {
+                    return sum + (item.priceDifference / item.abnormalPrice) * 100;
+                }, 0);
+                avgRatio = totalRatio / appData.costReductionData.length;
+            }
+            
+            elements.totalCostReduction.textContent = `¥${totalCostReduction.toFixed(2)}`;
+            elements.avgCostReductionRatio.textContent = `${avgRatio.toFixed(1)}%`;
+            elements.costReductionMaterials.textContent = materialCount;
+            
+            // 渲染表格
+            renderCostTable();
+            
+            // 渲染图表
+            renderCostAnalysisCharts();
+        }
+
+        // 渲染成本分析表格
+        function renderCostTable() {
+            const filteredData = getFilteredCostData();
+            const totalItems = filteredData.length;
+            const startIndex = (pageState.cost.currentPage - 1) * pageState.cost.pageSize;
+            const endIndex = Math.min(startIndex + pageState.cost.pageSize, totalItems);
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+            
+            // 更新表格内容
+            elements.costTableBody.innerHTML = '';
+            
+            if (paginatedData.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="8" class="py-8 text-center text-gray-500">没有找到匹配的降本数据</td>`;
+                elements.costTableBody.appendChild(row);
+            } else {
+                paginatedData.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b hover:bg-gray-50 transition-all-300';
+                    
+                    const reductionRatio = (item.priceDifference / item.abnormalPrice) * 100;
+                    
+                    row.innerHTML = `
+                        <td class=\"py-3 px-4\">${item.materialCode}</td>
+                        <td class=\"py-3 px-4\">${item.supplier}</td>
+                        <td class=\"py-3 px-4\">¥${item.abnormalPrice.toFixed(2)}</td>
+                        <td class=\"py-3 px-4\">¥${item.normalAverage.toFixed(2)}</td>
+                        <td class=\"py-3 px-4 text-danger\">¥${item.priceDifference.toFixed(2)}</td>
+                        <td class=\"py-3 px-4\">¥${item.historyAmount.toFixed(2)}</td>
+                        <td class=\"py-3 px-4 text-success font-medium\">¥${item.costReduction.toFixed(2)} 
+                            <span class=\"text-xs text-success/80\">(${reductionRatio.toFixed(1)}%)</span>
+                        </td>
+                        <td class=\"py-3 px-4 text-center\">
+                            <button class=\"view-cost-details text-primary hover:text-primary/80\" 
+                                data-material=\"${encodeURIComponent(item.materialCode)}\"
+                                data-supplier=\"${encodeURIComponent(item.supplier)}\">\n+                                <i class=\"fa fa-info-circle mr-1\"></i>详情
+                            </button>
+                        </td>
+                    `;
+                    
+                    elements.costTableBody.appendChild(row);
+                });
+                
+                // 添加详情按钮事件（可以扩展显示更多成本分析详情）
+                document.querySelectorAll('.view-cost-details').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const materialCode = decodeURIComponent(e.currentTarget.dataset.material);
+                        const supplier = decodeURIComponent(e.currentTarget.dataset.supplier);
+                        // 这里可以实现显示成本详情的逻辑
+                        alert(`物料 ${materialCode} 供应商 ${supplier} 的成本分析详情`);
+                    });
+                });
+            }
+            
+            // 更新分页信息
+            elements.costStart.textContent = totalItems > 0 ? startIndex + 1 : 0;
+            elements.costEnd.textContent = endIndex;
+            elements.costTotal.textContent = totalItems;
+            
+            // 更新分页按钮
+            renderPagination(
+                elements.costPageNumbers,
+                pageState.cost.currentPage,
+                Math.ceil(totalItems / pageState.cost.pageSize),
+                (page) => {
+                    pageState.cost.currentPage = page;
+                    renderCostTable();
+                }
+            );
+            
+            // 禁用/启用上一页/下一页按钮
+            elements.costPrev.disabled = pageState.cost.currentPage === 1;
+            elements.costNext.disabled = pageState.cost.currentPage >= Math.ceil(totalItems / pageState.cost.pageSize) || totalItems === 0;
+        }
+
+        // 渲染成本分析图表
+        function renderCostAnalysisCharts() {
+            // 降本金额分布图表（按供应商）
+            const ctx1 = document.getElementById('cost-reduction-chart').getContext('2d');
+            
+            // 按供应商汇总降本金额
+            const supplierReduction = {};
+            appData.suppliers.forEach(supplier => {
+                supplierReduction[supplier] = 0;
+            });
+            
+            appData.costReductionData.forEach(item => {
+                supplierReduction[item.supplier] += item.costReduction;
+            });
+            
+            // 只显示有降本金额的供应商
+            const supplierLabels = [];
+            const reductionValues = [];
+            
+            Object.keys(supplierReduction).forEach(supplier => {
+                if (supplierReduction[supplier] > 0) {
+                    supplierLabels.push(supplier);
+                    reductionValues.push(supplierReduction[supplier]);
+                }
+            });
+            
+            if (charts.costReductionChart) {
+                charts.costReductionChart.destroy();
+            }
+            
+            charts.costReductionChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: supplierLabels,
+                    datasets: [{
+                        label: '降本金额',
+                        data: reductionValues,
+                        backgroundColor: 'rgba(82, 196, 26, 0.7)',
+                        borderColor: 'rgba(82, 196, 26, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '降本金额 (¥)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `降本金额: ¥${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 降本金额TOP 10物料图表
+            const ctx2 = document.getElementById('top-materials-chart').getContext('2d');
+            
+            // 按物料汇总降本金额
+            const materialReduction = {};
+            appData.costReductionData.forEach(item => {
+                if (!materialReduction[item.materialCode]) {
+                    materialReduction[item.materialCode] = 0;
+                }
+                materialReduction[item.materialCode] += item.costReduction;
+            });
+            
+            // 排序并取TOP 10
+            const sortedMaterials = Object.keys(materialReduction)
+                .map(material => ({
+                    material: material,
+                    reduction: materialReduction[material]
+                }))
+                .sort((a, b) => b.reduction - a.reduction)
+                .slice(0, 10);
+            
+            const materialLabels = sortedMaterials.map(item => item.material);
+            const materialValues = sortedMaterials.map(item => item.reduction);
+            
+            if (charts.topMaterialsChart) {
+                charts.topMaterialsChart.destroy();
+            }
+            
+            charts.topMaterialsChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: materialLabels,
+                    datasets: [{
+                        label: '降本金额',
+                        data: materialValues,
+                        backgroundColor: 'rgba(22, 93, 255, 0.7)',
+                        borderColor: 'rgba(22, 93, 255, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '降本金额 (¥)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `降本金额: ¥${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 发送问题到AI
+        function sendQuestionToAI() {
+            const question = elements.aiQuestion.value.trim();
+            if (!question) return;
+            
+            // 添加用户问题到聊天记录
+            addChatMessage('user', question);
+            
+            // 清空输入框
+            elements.aiQuestion.value = '';
+            
+            // 显示加载状态
+            addChatMessage('ai', '<i class="fa fa-spinner fa-spin"></i> 正在分析，请稍候...', true);
+            
+            // 模拟AI回答（实际应用中应连接到真实的AI服务）
+            setTimeout(() => {
+                // 移除加载状态消息
+                const loadingMessage = elements.chatMessages.lastElementChild;
+                if (loadingMessage) {
+                    elements.chatMessages.removeChild(loadingMessage);
+                }
+                
+                // 根据问题内容生成模拟回答
+                const answer = generateAIAnswer(question);
+                addChatMessage('ai', answer);
+                
+            }, 1500);
+        }
+
+        // 添加聊天消息
+        function addChatMessage(sender, content, isLoading = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex items-start gap-3 ${isLoading ? 'loading-message' : ''}`;
+            
+            if (sender === 'user') {
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                        <i class="fa fa-user text-gray-600"></i>
+                    </div>
+                    <div class="bg-primary text-white rounded-lg rounded-tr-none px-4 py-3 max-w-[80%]">
+                        ${content}
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <i class="fa fa-robot text-primary"></i>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg rounded-tl-none px-4 py-3 max-w-[80%]">
+                        ${content}
+                    </div>
+                `;
+            }
+            
+            elements.chatMessages.appendChild(messageDiv);
+            
+            // 滚动到底部
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+        }
+
+        // 生成AI回答（模拟）
+        function generateAIAnswer(question) {
+            const lowerQuestion = question.toLowerCase();
+            
+            // 分析问题并生成相应回答
+            if (lowerQuestion.includes('异常值最多') || lowerQuestion.includes('异常最多')) {
+                // 找出异常值最多的供应商
+                let maxAnomalies = -1;
+                let maxSupplier = '';
+                
+                appData.suppliers.forEach(supplier => {
+                    let count = 0;
+                    appData.anomalyData.forEach(item => {
+                        const status = item.anomalies[supplier];
+                        if (status === '异常高' || status === '异常低') {
+                            count++;
+                        }
+                    });
+                    
+                    if (count > maxAnomalies) {
+                        maxAnomalies = count;
+                        maxSupplier = supplier;
+                    }
+                });
+                
+                return `根据分析，异常值最多的供应商是 <strong>${maxSupplier}</strong>，共出现 ${maxAnomalies} 次异常报价。建议重点审核该供应商的报价合理性，特别是与市场均价偏差较大的物料。`;
+            } 
+            else if (lowerQuestion.includes('降本潜力最大') || lowerQuestion.includes('降本最多')) {
+                // 找出降本潜力最大的物料
+                if (appData.costReductionData.length === 0) {
+                    return '目前没有足够的降本分析数据，请先完成报价异常分析。';
+                }
+                
+                // 按物料汇总降本金额
+                const materialReduction = {};
+                appData.costReductionData.forEach(item => {
+                    if (!materialReduction[item.materialCode]) {
+                        materialReduction[item.materialCode] = 0;
+                    }
+                    materialReduction[item.materialCode] += item.costReduction;
+                });
+                
+                // 排序
+                const sortedMaterials = Object.keys(materialReduction)
+                    .map(material => ({
+                        material: material,
+                        reduction: materialReduction[material]
+                    }))
+                    .sort((a, b) => b.reduction - a.reduction);
+                
+                const top3 = sortedMaterials.slice(0, 3);
+                let answer = '降本潜力最大的前三个物料是：';
+                
+                top3.forEach((item, index) => {
+                    answer += `<br>${index + 1}. 物料 ${item.material}：潜在降本 ¥${item.reduction.toFixed(2)}`;
+                });
+                
+                answer += '<br>建议优先与这些物料的高报价供应商协商降价，或考虑更换报价更合理的供应商。';
+                return answer;
+            } 
+            else if (lowerQuestion.includes('推荐供应商') || lowerQuestion.includes('选择供应商')) {
+                // 推荐供应商
+                if (appData.supplierData.length === 0) {
+                    return '目前没有足够的供应商数据，请先导入报价数据。';
+                }
+                
+                // 按总报价和异常值数量综合排序
+                const rankedSuppliers = [...appData.supplierData].map(supplier => {
+                    // 计算异常值数量
+                    let anomalyCount = 0;
+                    let totalCount = 0;
+                    
+                    appData.anomalyData.forEach(item => {
+                        appData.suppliers.forEach(s => {
+                            if (s === supplier.name) {
+                                totalCount++;
+                                const status = item.anomalies[s];
+                                if (status === '异常高' || status === '异常低') {
+                                    anomalyCount++;
+                                }
+                            }
+                        });
+                    });
+                    
+                    const anomalyRate = totalCount > 0 ? anomalyCount / totalCount : 0;
+                    
+                    return {
+                        ...supplier,
+                        anomalyRate: anomalyRate
+                    };
+                }).sort((a, b) => {
+                    // 先按异常率排序，再按总报价排序
+                    if (a.anomalyRate !== b.anomalyRate) {
+                        return a.anomalyRate - b.anomalyRate;
+                    }
+                    return a.totalPrice - b.totalPrice;
+                });
+                
+                const top2 = rankedSuppliers.slice(0, 2);
+                let answer = '综合考虑报价和异常值情况，推荐的供应商是：';
+                
+                top2.forEach((supplier, index) => {
+                    const anomalyPercentage = (supplier.anomalyRate * 100).toFixed(1);
+                    answer += `<br>${index + 1}. ${supplier.name}：总报价 ¥${supplier.totalPrice.toFixed(2)}，异常率 ${anomalyPercentage}%`;
+                });
+                
+                answer += '<br>这些供应商的报价总体较低且异常值比例较少，性价比较高。';
+                return answer;
+            } 
+            else if (lowerQuestion.includes('总成本') || lowerQuestion.includes('总金额')) {
+                const totalEstimate = appData.supplierData.reduce((sum, supplier) => sum + supplier.totalPrice, 0);
+                const totalCostReduction = appData.costReductionData.reduce((sum, item) => sum + item.costReduction, 0);
+                const reductionRatio = totalEstimate > 0 ? (totalCostReduction / totalEstimate) * 100 : 0;
+                
+                return `当前所有物料的总预估采购金额为 ¥${totalEstimate.toFixed(2)}。通过优化异常报价，预计可降低成本 ¥${totalCostReduction.toFixed(2)}，降本比例约为 ${reductionRatio.toFixed(1)}%。`;
+            } 
+            else {
+                return `您的问题是："${question}"<br><br>根据分析，我可以为您提供以下信息：<br>1. 共有 ${appData.suppliers.length} 家供应商参与报价<br>2. 共有 ${appData.materialCodes.length} 种不同规格的电缆桥架<br>3. 检测到 ${elements.anomalyCount.textContent} 个异常报价<br>4. 潜在总降本金额为 ${elements.totalCostReduction.textContent}<br><br>如果您有更具体的问题，我可以提供更详细的分析。`;
+            }
+        }
+
+        // 更新快速分析建议
+        function updateQuickAnalysis() {
+            if (appData.rawData.length === 0) return;
+            
+            // 总体分析
+            const totalEstimate = appData.supplierData.reduce((sum, supplier) => sum + supplier.totalPrice, 0);
+            const avgSupplierCount = appData.rawData.length > 0 ? appData.rawData.length / appData.materialCodes.length : 0;
+            
+            // 异常报价提醒
+            let maxAnomalySupplier = '';
+            let maxAnomalyCount = 0;
+            
+            appData.suppliers.forEach(supplier => {
+                let count = 0;
+                appData.anomalyData.forEach(item => {
+                    const status = item.anomalies[supplier];
+                    if (status === '异常高' || status === '异常低') {
+                        count++;
+                    }
+                });
+                
+                if (count > maxAnomalyCount) {
+                    maxAnomalyCount = count;
+                    maxAnomalySupplier = supplier;
+                }
+            });
+            
+            // 降本建议
+            let topReductionMaterial = '';
+            let topReductionAmount = 0;
+            
+            if (appData.costReductionData.length > 0) {
+                const materialReduction = {};
+                appData.costReductionData.forEach(item => {
+                    if (!materialReduction[item.materialCode]) {
+                        materialReduction[item.materialCode] = 0;
+                    }
+                    materialReduction[item.materialCode] += item.costReduction;
+                });
+                
+                Object.keys(materialReduction).forEach(material => {
+                    if (materialReduction[material] > topReductionAmount) {
+                        topReductionAmount = materialReduction[material];
+                        topReductionMaterial = material;
+                    }
+                });
+            }
+            
+            // 供应商选择建议
+            let recommendedSupplier = '';
+            if (appData.supplierData.length > 0) {
+                const sortedByPrice = [...appData.supplierData].sort((a, b) => a.totalPrice - b.totalPrice);
+                recommendedSupplier = sortedByPrice[0].name;
+            }
+            
+            // 更新快速分析内容
+            elements.quickAnalysis.innerHTML = `
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium mb-2 flex items-center">
+                        <i class="fa fa-lightbulb-o text-warning mr-2"></i>
+                        总体分析
+                    </h4>
+                    <p class="text-gray-700 text-sm mb-2">本次共分析了 ${appData.materialCodes.length} 种电缆桥架，涉及 ${appData.suppliers.length} 家供应商。</p>
+                    <p class="text-gray-700 text-sm mb-2">总预估采购金额约为 ¥${totalEstimate.toFixed(2)}。</p>
+                    <p class="text-gray-700 text-sm">平均每种物料有 ${avgSupplierCount.toFixed(1)} 家供应商报价。</p>
+                </div>
+                
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium mb-2 flex items-center">
+                        <i class="fa fa-exclamation-circle text-danger mr-2"></i>
+                        异常报价提醒
+                    </h4>
+                    <p class="text-gray-700 text-sm mb-2">共检测到 ${elements.anomalyCount.textContent} 个异常报价，其中异常高值 ${elements.highAnomalyCount.textContent} 个，异常低值 ${elements.lowAnomalyCount.textContent} 个。</p>
+                    <p class="text-gray-700 text-sm">${maxAnomalySupplier} 的异常报价数量最多，共 ${maxAnomalyCount} 次，建议重点审核。</p>
+                </div>
+                
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium mb-2 flex items-center">
+                        <i class="fa fa-money text-success mr-2"></i>
+                        降本建议
+                    </h4>
+                    <p class="text-gray-700 text-sm mb-2">通过优化异常报价，预计可降低成本 ¥${elements.totalCostReduction.textContent}，平均降本比例为 ${elements.avgCostReductionRatio.textContent}。</p>
+                    ${topReductionMaterial ? `<p class="text-gray-700 text-sm">物料 ${topReductionMaterial} 的降本潜力最大，约为 ¥${topReductionAmount.toFixed(2)}，建议优先处理。</p>` : ''}
+                </div>
+                
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h4 class="font-medium mb-2 flex items-center">
+                        <i class="fa fa-handshake-o text-primary mr-2"></i>
+                        供应商选择建议
+                    </h4>
+                    ${recommendedSupplier ? `<p class="text-gray-700 text-sm mb-2">综合考虑报价和异常情况，推荐优先选择 ${recommendedSupplier}，其总报价最低且异常率较低。</p>` : ''}
+                    <p class="text-gray-700 text-sm">建议与报价异常高的供应商进行谈判，争取将价格调整至合理区间。</p>
+                </div>
+            `;
+        }
+
+        // 渲染分页
+        function renderPagination(container, currentPage, totalPages, onClick) {
+            container.innerHTML = '';
+            
+            // 最多显示5个页码
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = startPage + maxVisiblePages - 1;
+            
+            if (endPage > totalPages) {
+                endPage = totalPages;
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            // 添加第一页按钮（如果需要）
+            if (startPage > 1) {
+                addPageButton(container, 1, currentPage, onClick);
+                
+                // 添加省略号
+                if (startPage > 2) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'px-2 text-gray-500';
+                    ellipsis.textContent = '...';
+                    container.appendChild(ellipsis);
+                }
+            }
+            
+            // 添加可见页码
+            for (let i = startPage; i <= endPage; i++) {
+                addPageButton(container, i, currentPage, onClick);
+            }
+            
+            // 添加最后一页按钮（如果需要）
+            if (endPage < totalPages) {
+                // 添加省略号
+                if (endPage < totalPages - 1) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'px-2 text-gray-500';
+                    ellipsis.textContent = '...';
+                    container.appendChild(ellipsis);
+                }
+                
+                addPageButton(container, totalPages, currentPage, onClick);
+            }
+        }
+
+        // 添加页码按钮
+        function addPageButton(container, pageNum, currentPage, onClick) {
+            const button = document.createElement('button');
+            button.className = `px-3 py-1 rounded ${pageNum === currentPage ? 'bg-primary text-white' : 'border border-gray-300 hover:bg-gray-50'}`;
+            button.textContent = pageNum;
+            
+            button.addEventListener('click', () => onClick(pageNum));
+            container.appendChild(button);
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+<!--
+视觉增强说明（不影响功能）：
+- 引入了 Inter Web 字体与玻璃拟态（glass）头部，改善观感与阅读。
+- 增加浅色径向渐变与网格背景、卡片悬浮阴影、圆角与平滑过渡。
+- 表头置顶、表格斑马纹、移动端菜单与组件保持原有 ID 与事件钩子不变。
+- 动画均支持用户“减少动态效果”设置；所有功能逻辑完全复用原脚本。
+-->
+</html>
